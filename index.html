@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Contract Generator</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #title {
+            margin-bottom: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+        #signature-pad {
+            border: 2px solid #000;
+            width: 400px;
+            height: 200px;
+            background-color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+        #controls {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 10px; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="title">Contract Generator</div>
+<div id="signature-pad" class="signature-pad">
+    <canvas></canvas>
+</div>
+<div id="controls">
+    <input type="file" id="contract" accept="image/*">
+    <button id="submit">Submit</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/1.5.3/signature_pad.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script>
+    var canvas = document.querySelector("canvas");
+    var signaturePad = new SignaturePad(canvas);
+
+    function resizeCanvas() {
+        var ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        signaturePad.clear();
+    }
+
+    window.onresize = resizeCanvas;
+    resizeCanvas();
+
+    document.getElementById('submit').addEventListener('click', function () {
+        if (signaturePad.isEmpty()) {
+            alert("Please sign before submitting.");
+            return;
+        }
+
+        var contractInput = document.getElementById('contract');
+        if (!contractInput.files.length) {
+            alert("Please upload the contract image.");
+            return;
+        }
+
+        var contractFile = contractInput.files[0];
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            var contractData = event.target.result.replace(/^data:image\/(png|jpg|jpeg);base64,/, "");
+            var signatureData = signaturePad.toDataURL().replace(/^data:image\/(png|jpg);base64,/, "");
+
+            $.ajax({
+                type: "POST",
+                url: "https://21uog7y7sc.execute-api.us-east-1.amazonaws.com/termProjectStage/execution",
+                contentType: "application/json",
+                data: JSON.stringify({ "signature": signatureData, "contract": contractData }),
+                success: function(response) {
+                    alert('Signature and contract successfully uploaded. Please check your email for the PDF contract.');
+
+                    window.location.reload();
+                },
+                error: function(xhr, status, error) {
+                    var errorMsg = xhr.status + ': ' + xhr.statusText;
+                    alert('Upload failed: ' + errorMsg);
+                    console.error('AJAX error response:', errorMsg);
+                    console.error('AJAX error details:', xhr.responseText || 'No response body');
+                    console.error('AJAX full object:', xhr);
+                }
+            });
+        };
+        reader.readAsDataURL(contractFile);
+    });
+</script>
+</body>
+</html>
